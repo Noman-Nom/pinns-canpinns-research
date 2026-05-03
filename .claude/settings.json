@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "math-tools": {
+      "command": "C:/Users/Muhammad Noman/AppData/Local/Python/pythoncore-3.14-64/python.exe",
+      "args": ["e:/khokhar-tappa/pinns-canpinns-research/mcp_math_server.py"],
+      "env": {
+        "PYTHONPATH": "e:/khokhar-tappa/pinns-canpinns-research"
+      }
+    }
+  }
+}

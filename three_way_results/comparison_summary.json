@@ -1,0 +1,23 @@
+{
+  "Baseline PINN": {
+    "pde_loss": 2.0760347979376093e-05,
+    "total_loss": 2.610718183859717e-05,
+    "time": 210.00940942764282,
+    "method": "Standard AD",
+    "optimizer": "Adam only"
+  },
+  "Original CAN-PINN": {
+    "pde_loss": 0.004373437725007534,
+    "total_loss": 0.09245985746383667,
+    "time": 167.04988503456116,
+    "method": "Finite Differences",
+    "optimizer": "Adam only"
+  },
+  "Hybrid CAN-PINN": {
+    "pde_loss": 1.1926405932172202e-05,
+    "total_loss": -3.149801731109619,
+    "time": 571.9574003219604,
+    "method": "AD + Uncertainty + Adaptive + L-BFGS",
+    "optimizer": "Adam + L-BFGS"
+  }
+}

@@ -1,0 +1,22 @@
+# Physics-Informed Neural Networks (PINNs) Project
+# Core dependencies for Hybrid CAN-PINN research
+
+# Core ML & numerical computing
+torch>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+matplotlib>=3.7.0
+
+# Symbolic math & analysis
+sympy>=1.14.0
+
+# MCP server for math tools
+mcp>=0.1.0
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Optional: utilities
+scikit-learn>=1.3.0
+tqdm>=4.65.0

@@ -141,7 +141,27 @@ def train_improved_comparison(epsilon=0.01, ic_type='sin', epochs=10000, lr=0.00
         'training_time': improved_time,
         'final_loss': history_improved['total_loss'][-1]
     }
-    
+
+    # Save solution files for error analysis (outputs/TC*_*_eps*_*_solution.npz)
+    import os
+    os.makedirs('outputs', exist_ok=True)
+    eps_str = str(epsilon).replace('.', '')  # 0.01→001, 0.05→005
+    tc_name = f"TC{test_case}_{ic_type}_eps{eps_str}"
+    np.savez(
+        f"outputs/{tc_name}_pinn_solution.npz",
+        u_pred=u_pred_pinn,
+        x_test=x_test,
+        t_test=t_test
+    )
+    np.savez(
+        f"outputs/{tc_name}_canpinn_solution.npz",
+        u_pred=u_pred_improved,
+        x_test=x_test,
+        t_test=t_test
+    )
+    print(f"  Saved: outputs/{tc_name}_pinn_solution.npz")
+    print(f"  Saved: outputs/{tc_name}_canpinn_solution.npz")
+
     # Create comparison results format
     comparison_results = {
         'pinn': results['pinn'],
@@ -161,9 +181,9 @@ def train_improved_comparison(epsilon=0.01, ic_type='sin', epochs=10000, lr=0.00
     print("SUMMARY")
     print("="*70)
     
-    # Get final PDE losses (the real metric)
-    pinn_pde_loss = results['pinn']['history']['pde_loss'][-1] if 'pde_loss' in results['pinn']['history'] else results['pinn']['final_loss']
-    can_pde_loss = results['improved_can']['history']['pde_loss'][-1] if 'pde_loss' in results['improved_can']['history'] else results['improved_can']['final_loss']
+    # Get final PDE losses (the real metric) — history key is 'loss_pde'
+    pinn_pde_loss = results['pinn']['history']['loss_pde'][-1] if 'loss_pde' in results['pinn']['history'] else results['pinn']['final_loss']
+    can_pde_loss = results['improved_can']['history']['loss_pde'][-1] if 'loss_pde' in results['improved_can']['history'] else results['improved_can']['final_loss']
     
     print(f"PINN:")
     print(f"  Total Loss: {results['pinn']['final_loss']:.6e}")
@@ -238,8 +258,8 @@ def main():
     for name, result in all_results.items():
         print(f"\n{name}:")
         # Get PDE losses
-        pinn_pde = result['pinn']['history']['pde_loss'][-1] if 'pde_loss' in result['pinn']['history'] else result['pinn']['final_loss']
-        can_pde = result['improved_can']['history']['pde_loss'][-1] if 'pde_loss' in result['improved_can']['history'] else result['improved_can']['final_loss']
+        pinn_pde = result['pinn']['history']['loss_pde'][-1] if 'loss_pde' in result['pinn']['history'] else result['pinn']['final_loss']
+        can_pde = result['improved_can']['history']['loss_pde'][-1] if 'loss_pde' in result['improved_can']['history'] else result['improved_can']['final_loss']
         
         print(f"  PINN Total Loss: {result['pinn']['final_loss']:.6e}")
         print(f"  PINN PDE Loss: {pinn_pde:.6e}")
