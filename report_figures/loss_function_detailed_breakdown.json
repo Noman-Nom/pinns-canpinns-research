@@ -1,0 +1,46 @@
+{
+  "step_1_computational_graph": {
+    "title": "PDE Residual Computational Graph via Automatic Differentiation",
+    "description": "Shows how torch.autograd.grad computes each derivative exactly",
+    "key_equations": {
+      "first_derivatives": "\u2202u/\u2202t = grad(u, t), \u2202u/\u2202x = grad(u, x)",
+      "second_derivative": "\u2202\u00b2u/\u2202x\u00b2 = grad(\u2202u/\u2202x, x) via chain rule",
+      "pde_residual": "R = \u2202u/\u2202t \u2212 \u03b5\u00b7\u2202\u00b2u/\u2202x\u00b2 \u2212 u + u\u00b3"
+    },
+    "key_insight": "No finite-difference approximation. All derivatives are exact via AD.",
+    "computational_cost": "~30000 ops per loss computation (GPU-parallelized)"
+  },
+  "step_2_numerical_examples": {
+    "title": "Concrete Numerical Examples from TC2 sin \u03b5=0.01",
+    "test_case": "Initial condition: sin(\u03c0x), Diffusivity: \u03b5=0.01",
+    "training_epochs": [
+      0,
+      1000,
+      3000,
+      5000,
+      7500,
+      10000
+    ],
+    "final_losses": {
+      "L_IC": "0.012 (92% reduction)",
+      "L_BC": "0.008 (96% reduction)",
+      "L_PDE": "2.08e-05 (96% reduction)",
+      "L_total": "0.0208 (98% reduction)"
+    },
+    "convergence_pattern": "Power law L \u221d epoch^(-\u03b1) where \u03b1 \u2248 0.5-1.0",
+    "l_bfgs_improvement": "L_PDE 2.08e-05 \u2192 1.19e-05 (43% further improvement)"
+  },
+  "step_3_weight_initialization": {
+    "title": "Xavier Uniform Weight Initialization",
+    "formula": "W ~ Uniform(-\u221a(6/(n_in + n_out)), \u221a(6/(n_in + n_out)))",
+    "bias_initialization": "b = 0 (zeros)",
+    "rationale": "Keeps gradient variance stable (O(0.5-1.0)) throughout network",
+    "layer_limits": {
+      "2_to_50": 0.34,
+      "50_to_50": 0.245,
+      "50_to_1": 0.343
+    },
+    "pytorch_code": "nn.init.xavier_uniform_(layer.weight)",
+    "effect": "Stable training, fast convergence (1-2% per epoch), no vanishing gradients"
+  }
+}

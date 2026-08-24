@@ -1,0 +1,121 @@
+{
+  "title": "CAN-PINN Paper Comparison",
+  "subtitle": "Base PINN vs Original CAN-PINN vs Hybrid CAN-PINN",
+  "citations": {
+    "base_pinn": {
+      "authors": "M. Raissi, P. Perdikaris, G. E. Karniadakis",
+      "title": "Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations",
+      "journal": "Journal of Computational Physics",
+      "volume": 378,
+      "year": 2019,
+      "pages": "686-707",
+      "doi": "10.1016/j.jcp.2018.10.045"
+    },
+    "original_can_pinn": {
+      "authors": "Gao et al.",
+      "description": "Collocation approximation network PINN using finite differences for spatial derivatives"
+    },
+    "hybrid_can_pinn": {
+      "authors": "This work",
+      "description": "Hybrid CAN-PINN restoring automatic differentiation + adding uncertainty weighting, adaptive sampling, gradient penalty"
+    }
+  },
+  "comparison": {
+    "Approach": {
+      "Base PINN (Raissi et al. 2019)": {
+        "Spatial derivatives": "Automatic Differentiation (AD)",
+        "Temporal derivatives": "Automatic Differentiation (AD)",
+        "Second derivative": "AD (\u2202\u00b2u/\u2202x\u00b2 via chain rule)",
+        "Loss function": "L = w_ic\u00b7L_IC + w_bc\u00b7L_BC + w_pde\u00b7L_PDE",
+        "Uncertainty weighting": "Fixed weights (usually 1.0 each)",
+        "Adaptive sampling": "None (uniform collocation)",
+        "Gradient penalty": "None",
+        "L-BFGS refinement": "No",
+        "Key advantage": "Clean, exact derivatives via AD",
+        "Key limitation": "No adaptive enhancements; equal weight to all terms"
+      },
+      "Original CAN-PINN (Gao et al.)": {
+        "Spatial derivatives": "Finite Differences (FD) \u2014 O(\u0394x\u00b2) truncation error",
+        "Temporal derivatives": "Automatic Differentiation (AD)",
+        "Second derivative": "FD approximation: (u(x+h)-2u(x)+u(x-h))/h\u00b2",
+        "Loss function": "L = w_ic\u00b7L_IC + w_bc\u00b7L_BC + w_pde\u00b7L_PDE",
+        "Uncertainty weighting": "None",
+        "Adaptive sampling": "None (fixed collocation points)",
+        "Gradient penalty": "None",
+        "L-BFGS refinement": "No",
+        "Key advantage": "Lower computational cost per epoch",
+        "Key limitation": "O(\u0394x\u00b2) truncation error ~1e-4; does NOT improve solution accuracy"
+      },
+      "Hybrid CAN-PINN (This work)": {
+        "Spatial derivatives": "Automatic Differentiation (AD) \u2014 exact",
+        "Temporal derivatives": "Automatic Differentiation (AD)",
+        "Second derivative": "AD (exact via chain rule)",
+        "Loss function": "L = w_ic\u00b7L_IC + 0.5\u00b7log_var_ic + w_bc\u00b7L_BC + 0.5\u00b7log_var_bc + w_pde\u00b7L_PDE + 0.5\u00b7log_var_pde + \u03bb\u00b7(gradient penalty) + regularization",
+        "Uncertainty weighting": "Learnable log_var_ic, log_var_bc, log_var_pde; weight = 0.5\u00b7exp(-log_var)",
+        "Adaptive sampling": "Resample 10% of PDE points every 3000 epochs based on residual magnitude",
+        "Gradient penalty": "\u03bb = 1e-5 \u00d7 mean(u_x\u00b2)",
+        "L-BFGS refinement": "Yes, 1000 iterations after Adam",
+        "Key advantage": "Combines exact AD derivatives + adaptive enhancements for optimal PDE residual",
+        "Key limitation": "3-4\u00d7 slower training time; requires tuning 3 uncertainty weights"
+      }
+    }
+  },
+  "formulation": {
+    "Base PINN": {
+      "loss": {
+        "L_IC": "(1/N_ic) \u00b7 \u03a3\u1d62 [u_\u03b8(x\u1d62, 0) \u2212 sin(\u03c0x\u1d62)]\u00b2",
+        "L_BC": "(1/N_bc) \u00b7 \u03a3\u2c7c [u_\u03b8(0, t\u2c7c)\u00b2 + u_\u03b8(1, t\u2c7c)\u00b2]",
+        "L_PDE": "(1/N_pde) \u00b7 \u03a3\u2096 [\u2202u_\u03b8/\u2202t \u2212 \u03b5\u00b7\u2202\u00b2u_\u03b8/\u2202x\u00b2 \u2212 u_\u03b8 + u_\u03b8\u00b3]\u00b2",
+        "Total": "L_total = L_IC + L_BC + L_PDE"
+      },
+      "derivatives": {
+        "\u2202u_\u03b8/\u2202t": "torch.autograd.grad(u_\u03b8, t) [exact]",
+        "\u2202u_\u03b8/\u2202x": "torch.autograd.grad(u_\u03b8, x) [exact]",
+        "\u2202\u00b2u_\u03b8/\u2202x\u00b2": "torch.autograd.grad(\u2202u_\u03b8/\u2202x, x) [exact via chain rule]"
+      },
+      "optimizer": "Adam (10000 epochs, lr=0.001) + optional ReduceLROnPlateau",
+      "truncation_error": "None (AD is exact in floating-point arithmetic)"
+    },
+    "Original CAN-PINN": {
+      "loss": {
+        "L_IC": "(1/N_ic) \u00b7 \u03a3\u1d62 [u_\u03b8(x\u1d62, 0) \u2212 sin(\u03c0x\u1d62)]\u00b2",
+        "L_BC": "(1/N_bc) \u00b7 \u03a3\u2c7c [u_\u03b8(0, t\u2c7c)\u00b2 + u_\u03b8(1, t\u2c7c)\u00b2]",
+        "L_PDE": "(1/N_pde) \u00b7 \u03a3\u2096 [\u2202u_\u03b8/\u2202t \u2212 \u03b5\u00b7(FD approximation) \u2212 u_\u03b8 + u_\u03b8\u00b3]\u00b2",
+        "Total": "L_total = L_IC + L_BC + L_PDE"
+      },
+      "derivatives": {
+        "\u2202u_\u03b8/\u2202t": "torch.autograd.grad(u_\u03b8, t) [exact]",
+        "\u2202u_\u03b8/\u2202x": "torch.autograd.grad(u_\u03b8, x) [exact]",
+        "\u2202\u00b2u_\u03b8/\u2202x\u00b2": "(u_\u03b8(x+h) \u2212 2u_\u03b8(x) + u_\u03b8(x\u2212h)) / h\u00b2 [FD, O(\u0394x\u00b2) error \u2248 1e-4]"
+      },
+      "optimizer": "Adam (10000 epochs, lr=0.001)",
+      "truncation_error": "O(\u0394x\u00b2) \u2248 1e-4 per collocation point"
+    },
+    "Hybrid CAN-PINN": {
+      "loss": {
+        "L_IC": "(1/N_ic) \u00b7 \u03a3\u1d62 [u_\u03b8(x\u1d62, 0) \u2212 sin(\u03c0x\u1d62)]\u00b2",
+        "L_BC": "(1/N_bc) \u00b7 \u03a3\u2c7c [u_\u03b8(0, t\u2c7c)\u00b2 + u_\u03b8(1, t\u2c7c)\u00b2]",
+        "L_PDE": "(1/N_pde) \u00b7 \u03a3\u2096 [\u2202u_\u03b8/\u2202t \u2212 \u03b5\u00b7\u2202\u00b2u_\u03b8/\u2202x\u00b2 \u2212 u_\u03b8 + u_\u03b8\u00b3]\u00b2",
+        "L_gradient": "\u03bb \u00b7 (1/N_pde) \u00b7 \u03a3\u2096 (\u2202u_\u03b8/\u2202x)\u00b2",
+        "Total": "L_total = w_ic\u00b7L_IC + 0.5\u00b7log_var_ic + w_bc\u00b7L_BC + 0.5\u00b7log_var_bc + w_pde\u00b7L_PDE + 0.5\u00b7log_var_pde + L_gradient + 0.05\u00b7\u03a3(log_var\u00b2)"
+      },
+      "derivatives": {
+        "\u2202u_\u03b8/\u2202t": "torch.autograd.grad(u_\u03b8, t) [exact]",
+        "\u2202u_\u03b8/\u2202x": "torch.autograd.grad(u_\u03b8, x) [exact]",
+        "\u2202\u00b2u_\u03b8/\u2202x\u00b2": "torch.autograd.grad(\u2202u_\u03b8/\u2202x, x) [exact via chain rule]"
+      },
+      "optimizer": "Adam (10000 epochs) + L-BFGS (1000 iterations, lr=0.1)",
+      "truncation_error": "None (AD is exact; no FD approximation)",
+      "uncertainty_weighting": "w\u1d62 = 0.5\u00b7exp(\u2212log_var\u1d62), clamped to [0.05, 7.4] (log_var \u2208 [\u22123, 2])",
+      "adaptive_sampling": "Resample 10% of points every 3000 epochs, prioritizing high-residual regions"
+    }
+  },
+  "key_results": {
+    "base_pinn_pde_loss_tc2_sin_eps001": "2.08e-05",
+    "original_can_pinn_pde_loss_tc2_sin_eps001": "4.37e-03",
+    "hybrid_can_pinn_pde_loss_tc2_sin_eps001": "1.19e-05",
+    "improvement_factor_original_vs_base": "210\u00d7 worse (FD truncation error)",
+    "improvement_factor_hybrid_vs_base": "43% better (exact AD + enhancements)",
+    "improvement_factor_hybrid_vs_original": "367\u00d7 better (eliminates FD error)"
+  }
+}

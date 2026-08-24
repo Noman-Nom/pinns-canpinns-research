@@ -1,206 +1,138 @@
-# Hybrid CAN-PINNs for Allen-Cahn Equation
+# Enhanced Adaptive PINNs for the Allen–Cahn Equation
 
-A Physics-Informed Neural Network (PINN) implementation for solving the Allen-Cahn equation using a hybrid approach that combines Automatic Differentiation with adaptive enhancements.
-
-## 🎯 Project Overview
-
-This project implements and compares:
-- **Baseline PINN**: Standard Physics-Informed Neural Network
-- **Hybrid CAN-PINN**: Enhanced PINN with Automatic Differentiation, uncertainty weighting, adaptive sampling, and L-BFGS fine-tuning
-
-The hybrid approach successfully eliminates numerical differentiation errors while maintaining competitive or improved performance compared to baseline PINN.
-
-## 📊 Key Results
-
-- **Solution Quality**: Excellent (differences < 0.004 from baseline)
-- **PDE Loss**: Competitive or better in 50% of test cases
-- **Best Performance**: 76% improvement (4.2x better) for ε=0.05
-- **Status**: ✅ Successfully validated on multiple test cases
-
-See [RESULTS.md](RESULTS.md) for detailed results and visualizations.
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **OS**: Ubuntu 20.04 LTS or higher
-- **GPU**: NVIDIA T2000 (or compatible NVIDIA GPU with CUDA support)
-- **CUDA**: 11.2 or higher
-- **Python**: 3.10 (managed via Conda)
-- **Conda**: Anaconda or Miniconda
-
-### Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Noman-Nom/pinns-canpinns-research
-   cd PINNS
-   ```
-
-2. **Create the conda environment**:
-   ```bash
-   conda env create -f environment.yml
-   conda activate pinns
-   ```
-
-3. **Verify installation**:
-   ```bash
-   python verify_gpu.py
-   ```
-
-### Usage
-
-**Train baseline PINN and improved CAN-PINN**:
-```bash
-python train_improved_allen_cahn.py
-```
-
-**Quick test**:
-```bash
-python test_improved.py
-```
-
-**Train on specific test case**:
-```bash
-python run_single_test.py
-```
-
-## 📁 Project Structure
+A controlled, three-way comparison of Physics-Informed Neural Networks (PINNs) on the
+Allen–Cahn phase-field equation, built to answer one question precisely: **how much
+accuracy does it cost to compute a PINN's spatial derivatives by finite differences
+instead of automatic differentiation, and can more training buy that accuracy back?**
 
 ```
-PINNS/
-├── README.md                          # This file
-├── RESULTS.md                         # Detailed results with visualizations
-├── environment.yml                    # Conda environment specification
-├── setup_environment.sh               # Automated setup script
-│
-├── Core Models
-│   ├── pinn_model.py                  # Base PINN model
-│   ├── allen_cahn_pinn.py             # Baseline Allen-Cahn PINN
-│   ├── allen_cahn_pinn_improved.py    # Hybrid CAN-PINN implementation
-│   └── residual_adaptive_sampling.py  # Adaptive sampling module
-│
-├── Training Scripts
-│   ├── train_heat_equation.py         # Heat equation training
-│   ├── train_allen_cahn.py            # Baseline Allen-Cahn training
-│   ├── train_improved_allen_cahn.py   # Hybrid CAN-PINN training
-│   └── run_single_test.py             # Single test case runner
-│
-├── Testing
-│   ├── test_pinn.py                   # PINN tests
-│   ├── test_allen_cahn.py             # Allen-Cahn tests
-│   └── test_improved.py               # Improved model tests
-│
-├── Utilities
-│   ├── verify_gpu.py                  # GPU verification
-│   ├── cuda_init.py                   # CUDA initialization
-│   └── wave_equation_pinn.py          # Wave equation implementation
-│
-└── Documentation
-    ├── PINN_DOCUMENTATION.md          # Technical documentation
-    ├── SUPERVISOR_SUMMARY.md          # Summary for supervisor
-    ├── HONEST_RESULTS_REVIEW.md       # Detailed results analysis
-    └── HYBRID_APPROACH_IMPLEMENTATION.md  # Implementation details
+∂u/∂t = ε · ∂²u/∂x² + u − u³,   x ∈ [0,1], t ∈ [0,1]
 ```
 
-## 🔬 Technical Details
+`u(x,t)` is the phase order parameter, and `ε` sets the width of the interface between
+the two phases — small `ε` gives a thin, near-discontinuous interface that punishes any
+method that can't represent steep gradients.
 
-### Model Architecture
+## Three methods, one fixed setup
 
-- **Network**: MLP with 2 inputs (x, t), 3 hidden layers (50 neurons each), 1 output (u)
-- **Activation**: Tanh
-- **Optimizer**: Adam (10,000 epochs) + L-BFGS (1,000 iterations)
+Every method below shares the same `[2 → 50 → 50 → 50 → 1]` Tanh network, the same
+20,000/1,000/200 interior/IC/BC collocation points, and the same 10,000-epoch Adam
+schedule, so the only thing that varies is the method itself.
 
-### Hybrid CAN-PINN Features
+| Method | How `∂²u/∂x²` is computed | PDE loss | Time |
+|---|---|---|---|
+| **Baseline PINN** | Exact automatic differentiation | `2.08e-5` | 210 s |
+| **Original CAN-PINN** | 3-point finite-difference stencil | `4.37e-3` (≈210× worse) | 167 s |
+| **Enhanced Adaptive PINN** | Exact AD + 4 enhancements (uncertainty-weighted loss, residual-based adaptive sampling, gradient penalty, Adam→L-BFGS) | `1.19e-5` (≈43% better than baseline) | 572 s |
 
-1. **Automatic Differentiation**: AD for all derivatives (eliminates numerical errors)
-2. **Uncertainty Weighting**: Learnable weights for IC/BC/PDE loss terms
-3. **Adaptive Sampling**: Residual-based adaptive sampling (resample 10% every 3000 epochs)
-4. **Gradient Penalty**: Promotes smoother solutions (λ = 1e-5)
-5. **L-BFGS Fine-tuning**: Additional optimization phase
+The Enhanced method is *not* a CAN-PINN — it keeps exact differentiation throughout, so
+none of the finite-difference truncation error is present.
 
-### Test Cases
+## The two findings
 
-- **TC2**: Varying initial conditions (sin(πx), step function), ε=0.01
-- **TC3**: Varying diffusivity (ε=0.01, 0.05), sin(πx) initial condition
-- **Domain**: x ∈ [0, 1], t ∈ [0, 1]
-- **Boundary**: Dirichlet (u=0 at x=0,1)
+1. **The finite-difference error floor is structural, not a training artifact.** A
+   Taylor-series argument predicts a truncation floor of `E_FD = (h²/12)·∂⁴u/∂x⁴ ≈ 4e-3`
+   at `h = 1/256`, `ε = 0.01` — computed *before* any training. The measured floor after
+   full training is `4.37e-3`. The two agree to within ~9%, and no amount of extra
+   training closes the gap, because the error lives in the discretization, not in the
+   network weights.
 
-## 📈 Results Summary
+2. **Both AD-based methods still plateau at ~37% relative L² field error at ε=0.01**
+   (falling to ~21% at the gentler ε=0.05), *regardless* of how well they satisfy the
+   PDE residual. A smooth Tanh network cannot represent a near-discontinuous interface
+   exactly — this is a representational ceiling, not a training failure, and it is the
+   dominant limit on solution accuracy even though the PDE-loss comparison above makes
+   automatic differentiation look 210× better.
 
-| Test Case | PINN PDE Loss | CAN-PINN PDE Loss | Result |
-|-----------|---------------|-------------------|--------|
-| TC2: sin(πx), ε=0.01 | 2.48e-05 | **1.59e-05** | ✅ 36% better |
-| TC2: step, ε=0.01 | 3.87e-04 | 4.10e-04 | ⚠️ 6% worse |
-| TC3: sin(πx), ε=0.01 | 1.36e-05 | 2.34e-05 | ⚠️ 72% worse |
-| TC3: sin(πx), ε=0.05 | 2.63e-05 | **6.30e-06** | ✅ 76% better (4.2x) |
+See [CLAUDE.md](CLAUDE.md) for the full derivations, hyperparameters, and exact numbers
+across all four test cases, and the accompanying thesis for the complete write-up.
 
-**Key Finding**: CAN-PINN shows significant improvements for larger ε values.
+## Repository structure
 
-## 📚 Documentation
+```
+pinns-canpinns-research/
+├── models/                       # Network + method implementations
+│   ├── pinn_model.py                    Base PINN class (Tanh MLP, shared by all methods)
+│   ├── allen_cahn_pinn.py               Baseline PINN (AD) + Original CAN-PINN (FD)
+│   ├── allen_cahn_pinn_improved.py      Enhanced Adaptive PINN (all 4 enhancements)
+│   └── residual_adaptive_sampling.py    Residual-based adaptive collocation sampler
+│
+├── analysis/                     # Reference solver + evaluation
+│   ├── reference_solver.py              Crank–Nicolson reference solution (Δx=1/256)
+│   ├── error_analysis.py                L², L∞, MAE vs. the reference
+│   └── three_way_comparison.py          The baseline/CAN-PINN/Enhanced comparison
+│
+├── training/                     # Entry points
+│   ├── run_full_pipeline.py             Reference → train → analyze → compare, in order
+│   ├── run_single_test.py               Run one test case (--test_case, --epsilon, --ic_type)
+│   ├── train_allen_cahn.py              Data generation + baseline training utilities
+│   └── train_improved_allen_cahn.py     Trains all methods on all four test cases
+│
+├── visualization/                # Figure generation for the thesis/report
+├── tests/                        # Sanity checks and GPU/environment verification
+├── setup/                        # requirements.txt, environment.yml, install scripts
+├── mcp_servers/                  # MCP server exposing symbolic/numerical math tools
+├── report_figures/               # Generated result figures
+├── outputs_archive/              # Generated results (git-ignored — see below)
+├── error_analysis_results.json   # L²/L∞/MAE summary for all four test cases
+└── CLAUDE.md                     # Full project reference: math, hyperparameters, results
+```
 
-- **[RESULTS.md](RESULTS.md)**: Detailed results with visualizations
-- **[SUPERVISOR_SUMMARY.md](SUPERVISOR_SUMMARY.md)**: Summary for supervisor presentation
-- **[PINN_DOCUMENTATION.md](PINN_DOCUMENTATION.md)**: Technical documentation
-- **[HONEST_RESULTS_REVIEW.md](HONEST_RESULTS_REVIEW.md)**: Comprehensive results analysis
-
-## 🔧 Troubleshooting
-
-### CUDA Not Available
+## Getting started
 
 ```bash
-# Verify NVIDIA drivers
-nvidia-smi
+# 1. Install dependencies (conda or pip — pick one)
+conda env create -f setup/environment.yml && conda activate pinns
+# or
+pip install -r setup/requirements.txt
 
-# Check CUDA installation
-nvcc --version
-
-# Reinstall PyTorch with CUDA
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# 2. Verify the environment / GPU
+python tests/verify_gpu.py
 ```
 
-### Environment Issues
+Run everything (reference solutions → training → error analysis → three-way comparison,
+in order) from the project root:
 
 ```bash
-# Recreate environment
-conda env remove -n pinns
-conda env create -f environment.yml
-conda activate pinns
+python training/run_full_pipeline.py
 ```
 
-## 🎓 Key Achievements
+Or run pieces individually:
 
-✅ **Fixed Critical Issues**: Eliminated numerical differentiation errors  
-✅ **Solution Quality**: Excellent (differences < 0.004)  
-✅ **Performance**: Competitive or better in 50% of cases  
-✅ **Best Result**: 76% improvement for ε=0.05 (4.2x better)
+```bash
+python analysis/reference_solver.py                          # Crank–Nicolson reference solutions
+python training/run_single_test.py --test_case 2 --epsilon 0.01 --ic_type sin
+python analysis/error_analysis.py                             # L2/Linf vs. reference
+python analysis/three_way_comparison.py 0.01 sin 2             # Baseline vs CAN-PINN vs Enhanced
+```
 
-## 📝 Citation
+All generated results (`.npz` solution files, reference solutions, comparison summaries)
+are written to `outputs_archive/`, which is git-ignored — regenerate them by running the
+pipeline rather than expecting them to be checked in.
 
-If you use this code in your research, please cite:
+## Test cases
+
+| ID | Initial condition `u₀(x)` | `ε` | Interface |
+|---|---|---|---|
+| TC2-sin | `sin(πx)` | 0.01 | Sharp (main benchmark) |
+| TC2-step | Step function | 0.01 | Very sharp |
+| TC3-sin | `sin(πx)` | 0.01 | Sharp |
+| TC3-sin | `sin(πx)` | 0.05 | Smooth (control case, isolates the ε effect) |
+
+## Reference solution
+
+Ground truth comes from an implicit Crank–Nicolson finite-difference solver
+(`Δx = 1/256`, `Δt = 10⁻⁴`, accuracy `O(10⁻⁷)`), solved with the Thomas algorithm at each
+time step — several orders of magnitude more accurate than any PINN considered here.
+
+## Citation
 
 ```bibtex
-@software{hybrid_can_pinn,
-  title = {Hybrid CAN-PINNs for Allen-Cahn Equation},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/yourusername/PINNS}
+@mastersthesis{shahid2026enhanced,
+  title  = {Adaptive Physics-Informed Neural Networks with Uncertainty-Weighted Loss
+            Functions for the Allen-Cahn Phase-Field Equation},
+  author = {Shahid, Hassan},
+  school = {National University of Science and Technology "MISIS"},
+  year   = {2026}
 }
 ```
-
-## 📄 License
-
-This project is for research purposes.
-
-## 👥 Contributors
-
-- [Your Name] - Initial work and implementation
-
-## 🙏 Acknowledgments
-
-- Based on the Physics-Informed Neural Networks framework by Raissi et al. (2019)
-- Inspired by CAN-PINN approaches for adaptive sampling and uncertainty weighting
-
----
-
-For detailed results and visualizations, see [RESULTS.md](RESULTS.md).

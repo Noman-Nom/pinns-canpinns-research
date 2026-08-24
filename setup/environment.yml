@@ -1,0 +1,25 @@
+name: pinns
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy>=1.21.0
+  - scipy>=1.7.0
+  - matplotlib>=3.4.0
+  - jupyter
+  - ipykernel
+  - pip:
+    - torch>=2.0.0
+    - torchvision>=0.15.0
+    - torchaudio>=2.0.0
+    - tensorflow>=2.13.0
+    - tensorboard
+    - scikit-learn
+    - pandas
+    - tqdm
+    - seaborn
+

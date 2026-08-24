@@ -12,12 +12,6 @@ __pycache__/
 *.ckpt
 *.pt
 
-# Old/Intermediate result images (keep only improved_*.png)
-allen_cahn_tc*.png
-heat_equation_results.png
-quick_test_results.png
-training_history.png
-
 # Jupyter Notebook
 .ipynb_checkpoints
 *.ipynb
@@ -48,23 +42,13 @@ logs/
 *.temp
 *.bak
 
-# Data files (if large)
-*.csv
-*.hdf5
-*.mat
-
-# Documentation (intermediate/development notes - keep important ones)
-# Keep: README.md, SUPERVISOR_SUMMARY.md, PINN_DOCUMENTATION.md, RESULTS.md
-# Ignore: Intermediate analysis files
-BUGFIXES.md
-QUICK_FIXES.md
-STEP_FUNCTION_ANALYSIS.md
-TEST_CASE_3_ANALYSIS.md
-CUDA_WARNING_EXPLANATION.md
-SETUP_COMPLETE.md
-IMPLEMENTATION_COMPLETE.md
-
 # Test outputs
 test_outputs/
 *.test
 
+# Generated results (regenerate via setup/run_step*.ps1 or training/run_full_pipeline.py)
+outputs_archive/
+
+# Claude Code local tooling state (not project content)
+.agents/
+skills-lock.json
